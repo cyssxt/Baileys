@@ -12,16 +12,16 @@ export class WAConnection extends Base {
         if (!this.authInfo?.clientID) {
             this.authInfo = { clientID: Utils.generateClientID() } as any
         }
-        const canLogin = this.canLogin()      
+        const canLogin = this.canLogin()
         this.referenceDate = new Date () // refresh reference date
 
         this.connectionDebounceTimeout.start()
-        
+
         const initQuery = (async () => {
             const {ref, ttl} = await this.query({
-                json: ['admin', 'init', this.version, this.browserDescription, this.authInfo?.clientID, true], 
-                expect200: true, 
-                waitForOpen: false, 
+                json: ['admin', 'init', this.version, this.browserDescription, this.authInfo?.clientID, true],
+                expect200: true,
+                waitForOpen: false,
                 longTag: true,
                 requiresPhoneConnection: false,
                 startDebouncedTimeout: true
@@ -43,7 +43,7 @@ export class WAConnection extends Base {
                 this.authInfo?.clientID,
             ]
             loginTag = this.generateMessageTag(true)
-            
+
             if (reconnect) json.push(...['reconnect', reconnect.replace('@s.whatsapp.net', '@c.us')])
             else json.push ('takeover')
             // send login every 10s
@@ -62,7 +62,7 @@ export class WAConnection extends Base {
             }
             sendLoginReq()
         }
-                        
+
         await initQuery
 
         // wait for response with tag "s1"
@@ -85,7 +85,7 @@ export class WAConnection extends Base {
             await this.respondToChallenge(response[1].challenge)
             response = await this.waitForMessage('s2', true)
         }
-        
+
         const result = this.validateNewConnection(response[1])// validate the connection
         if (result.user.jid !== this.user?.jid) {
             result.isNewUser = true
@@ -94,20 +94,22 @@ export class WAConnection extends Base {
             this.contacts = {}
         }
         this.user = result.user
-        
+
         this.logger.info('validated connection successfully')
-        
+        this.logger.info("login-success start")
+        this.emit("login-success",this.user);
+        this.logger.info("login-success end")
         return result
     }
-    /** 
-     * Refresh QR Code 
+    /**
+     * Refresh QR Code
      * @returns the new ref
      */
     async requestNewQRCodeRef() {
         const response = await this.query({
-            json: ['admin', 'Conn', 'reref'], 
-            expect200: true, 
-            waitForOpen: false, 
+            json: ['admin', 'Conn', 'reref'],
+            expect200: true,
+            waitForOpen: false,
             longTag: true,
             requiresPhoneConnection: false
         })
@@ -187,7 +189,7 @@ export class WAConnection extends Base {
         const bytes = Buffer.from(challenge, 'base64') // decode the base64 encoded challenge string
         const signed = Utils.hmacSign(bytes, this.authInfo.macKey).toString('base64') // sign the challenge string with our macKey
         const json = ['admin', 'challenge', signed, this.authInfo.serverToken, this.authInfo.clientID] // prepare to send this signed string with the serverToken & clientID
-        
+
         this.logger.info('resolving login challenge')
         return this.query({json, expect200: true, waitForOpen: false, startDebouncedTimeout: true})
     }
